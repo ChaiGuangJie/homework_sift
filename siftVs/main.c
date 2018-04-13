@@ -1,36 +1,82 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <malloc.h>
+#include<stdio.h>
+#include<malloc.h>
+#include<stdlib.h>
+#include<math.h>
+#include<string.h>
+
+//卷积次数
+#define CONVTIMES 3
+//采样次数
+#define SAMPTIMES 3
+//
+#define SAMPLESIZE 9
+
+#define BIT_24   24
+#define BIT_8    8
+#define BIT_4    4
+#define BIT_1    1
 
 typedef unsigned long DWORD;
-typedef int BOOL;
 typedef unsigned char BYTE;
 typedef unsigned short WORD;
 
-typedef   struct   tagBITMAPFILEHEADER
-{
-	WORD bfType;   //   位图文件的类型，必须为BM 
-	DWORD bfSize;   //   位图文件的大小，以字节为单位   
-	WORD bfReserved1;   //   位图文件保留字，必须为0 
-	WORD bfReserved2;   //   位图文件保留字，必须为0 
-	DWORD   bfOffBits;   //   位图数据的起始位置，以相对于位图 
-						 //   文件头的偏移量表示，以字节为单位 
-}BITMAPFILEHEADER;
 
+/*
+位图头结构
+*/
+//#pragma pack(1)
+typedef struct tagBITMAPFILEHEADER
+{
+	BYTE bfType[2];//文件格式
+	DWORD bfSize;//文件大小
+	WORD bfReserved1;//保留
+	WORD bfReserved2;
+	DWORD bfOffBits; //DIB数据在文件中的偏移量
+}fileHeader;
+//#pragma pack()
+
+/*
+位图数据信息结构
+*/
+//#pragma pack(1)
 typedef struct tagBITMAPINFOHEADER
 {
-	DWORD biSize;
-	long biWidth;
-	long biHeight;
-	WORD biPlanes;
-	WORD biBitCount;
-	DWORD biCompression;
-	DWORD biSizeImage;
-	long biXPelsPerMeter;
-	long biYPelsPerMeter;
-	DWORD biClrUsed;
-	DWORD biClrImportant;
-} BITMAPINFOHEADER;
+	DWORD biSize;//该结构的大小
+	DWORD biWidth;//文件宽度
+	DWORD biHeight;//文件高度
+	WORD biPlanes;//平面数
+	WORD biBitCount;//颜色位数
+	DWORD biCompression;//压缩类型
+	DWORD biSizeImage;//DIB数据区大小
+	DWORD biXPixPerMeter;
+	DWORD biYPixPerMeter;
+	DWORD biClrUsed;//多少颜色索引表
+	DWORD biClrImporant;//多少重要颜色
+}fileInfo;
+//#pragma pack()
+
+/*
+调色板结构
+*/
+//#pragma pack(1)
+typedef struct tagRGBQUAD
+{
+	BYTE rgbBlue; //蓝色分量亮度
+	BYTE rgbGreen;//绿色分量亮度
+	BYTE rgbRed;//红色分量亮度
+	BYTE rgbReserved;
+}rgbq;
+//#pragma pack()
+
+typedef struct bmpImg
+{
+	fileHeader *fHead;
+	fileInfo *fInfo; 
+	rgbq *rgbqList;
+	WORD rgbqCount;
+	BYTE *pixelData;
+}bmpImg;//todo 记得释放
+
 
 typedef struct bmpArray
 {
@@ -40,292 +86,282 @@ typedef struct bmpArray
 	WORD bitCountOfPixel;
 }bmpArray;
 
-typedef struct singleColorBmp
+typedef enum color
 {
-	BITMAPINFOHEADER bmpHead;
-	char *pixelArray; //todo 改名
+	red = 0, green, blue, gray, all
+}singleColor;
 
-}singleColorBmp;
-
-int ReadBmp(const char *szFileName);
-int GetDIBColor(int X, int Y, BYTE *r, BYTE *g, BYTE *b);
-singleColorBmp ConvertToSingleColor(BITMAPINFOHEADER rgb, BYTE *Buffer);
-int writerBmpToFile(singleColorBmp bmp, const char *szFileName);
-
-BITMAPINFOHEADER bih;
-BYTE *Buffer = NULL;
-long LineByteWidth;
-//todo 应定义一个变量保存所有动态申请的内存块，最后统一释放。
-int main(void)
+bmpImg* readBmp(const char* fileName)
 {
-	int x, y;
-	BYTE r, g, b;
-	int n;
-	char szfilename[255] = "1.bmp";
-	if (ReadBmp(szfilename) == 0)
+	FILE* file;
+	bmpImg* bmp = NULL;
+	if (0 != fopen_s(&file, fileName, "rb"))
 	{
-		printf("failure to read file %s", szfilename);
-		return 1;
+		return bmp;
 	}
-	printf("Width: %ld\n", bih.biWidth);
-	printf("Height: %ld\n", bih.biHeight);
-	printf("BitCount: %d\n\n", (int)bih.biBitCount);
+	bmp = (bmpImg*)malloc(sizeof(bmpImg));
 
-	//singleColorBmp sBmp = ConvertToSingleColor(bih,Buffer);
-	//printf("%d", sizeof(sBmp.bmpHead));
-	//writerBmpToFile(sBmp, "gray_1.bmp");
-	//printf("灰度图像第一个像素值为%d", *sBmp.pixelArray);
+	bmp->fHead = (fileHeader*)malloc(sizeof(fileHeader));
 
-	while (1)
+	fread(bmp->fHead, sizeof(fileHeader), 1, file);
+
+	bmp->fInfo = (fileInfo*)malloc(sizeof(fileInfo));
+
+	printf("%d",sizeof(bmp->fInfo));
+
+	fread(bmp->fInfo, sizeof(fileInfo), 1, file);
+
+	if (bmp->fInfo->biBitCount != 24)
 	{
-		printf("input the X:");
-		scanf_s("%d", &x);
-		if (x < 0)
-			break;
-		printf("input the Y:");
-		scanf_s("%d", &y);
-		if (GetDIBColor(x, y, &r, &g, &b) == 1)
-			printf("(%d, %d): r:%d, g:%d, b:%d\n", x, y, (int)r, (int)g, (int)b);
-		else
-			printf("input error.\n");
-	}
-	free(Buffer);
-	return 0;
-}
-
-DWORD localCov(bmpArray bmp, BYTE* locOrigin,const bmpArray kernal)
-{
-	BYTE* bmpPtr = locOrigin;
-	BYTE* kerPtr = kernal.pixelArray;
-	DWORD covResult = 0;
-
-	for (size_t i = 0; i < kernal.height * kernal.width; i++)
-	{
-		covResult += (*kerPtr) * (*bmpPtr);
-		kerPtr++;
-		if ((i!=0)&& (i % kernal.width == 0)) 
-		{
-			//方形区域内一行卷积完毕
-			bmpPtr = locOrigin + bmp.width;
-		}
-		//todo 判断是否边界
-	}
-	return (DWORD)(covResult / kernal.width*kernal.height);
-}
-
-bmpArray convBmp(bmpArray bmp, bmpArray kernal)
-{
-	bmpArray newBmp =
-	{
-		.pixelArray = NULL,
-		.width = 0,
-		.height = 0,
-		.bitCountOfPixel = 8
-	};
-	//todo先计算新图像的宽高
-	newBmp.width = bmp.width - kernal.width + 1;
-	newBmp.height = bmp.height - kernal.height + 1;
-	newBmp.pixelArray = (BYTE*)malloc(sizeof(BYTE)*newBmp.width*newBmp.height);
-	//
-	//DWORD row, col = 0;
-	//for (size_t i = 0; i < bmp.width * bmp.width; i++)
-	//{
-	//	//i为原图像每个像素
-	//	//将i转化为row col
-	//	//row = i / bmp.width;
-	//	//col = i % bmp.width;
-	//}
-	for (size_t j = 0; j < newBmp.height*newBmp.width; j++)
-	{
-		*(newBmp.pixelArray + j) = localCov(bmp, bmp.pixelArray + j, kernal); //只要计算好newBmp的图像大小，就不会越界访问？
-	}
-
-	return newBmp;
-}
-
-bmpArray downSample(bmpArray bmp,int sampSize)
-{
-
-}
-
-//求卷积后的局域极值点
-
-
-//用三次函数拟合后求真正的极值点
-
-
-//去除边界上的和小于阈值的极值点
-
-//todo 下采样后求得的极值点如何恢复到原图像中？
-
-//将bmp图像写入文件
-int writerBmpToFile(singleColorBmp bmp, const char *szFileName)
-{
-	FILE *file;
-	if (0 == fopen_s(&file, szFileName, "wb"))
-	{
-		fwrite(&bmp.bmpHead, sizeof(bmp.bmpHead),1,file);
-
-		size_t arrSize = bmp.bmpHead.biBitCount / 8 * bmp.bmpHead.biHeight*bmp.bmpHead.biWidth;
-		fwrite(bmp.pixelArray, arrSize, 1, file);
-		
-		fclose(file);
-		return 0;
+		bmp->rgbqCount = (1 << bmp->fInfo->biBitCount);
+		bmp->rgbqList = (rgbq*)malloc(sizeof(rgbq)*bmp->rgbqCount);
+		fread(bmp->rgbqList, sizeof(rgbq), bmp->rgbqCount, file); //todo
 	}
 	else
 	{
-		printf("写入文件出错！");
-		return 1;
+		bmp->rgbqCount = 0;
+		bmp->rgbqList = NULL;
 	}
+
+	bmp->pixelData = (BYTE*)malloc(bmp->fInfo->biSizeImage);
+	fread(bmp->pixelData, bmp->fInfo->biSizeImage, 1, file);
+
+	fclose(file);
+	return bmp;
+
 }
 
-// DWORD biSize,
-// long biWidth,
-// long biHeight,
-// WORD biPlanes,
-// WORD biBitCount,
-// DWORD biCompression,
-// DWORD biSizeImage,
-// long biXPelsPerMeter,
-// long biYPelsPerMeter,
-// DWORD biClrUsed,
-// DWORD biClrImportant
-void printImgInfo(BITMAPINFOHEADER bmpHead)
+int writeBmp(const bmpImg* bmp, const char* fileName)
 {
-	printf("imgInfo");
-	printf("biSize:%ld\n", bmpHead.biSize);
-	printf("biWidth:%ld\n", bmpHead.biWidth);
-	printf("biHeight:%ld\n", bmpHead.biHeight);
-	printf("biPlanes:%d\n", bmpHead.biPlanes);
-	printf("biBitCount:%d\n", bmpHead.biBitCount);
-	printf("biCompression:%ld\n", bmpHead.biCompression);
-	printf("biSizeImage:%ld\n", bmpHead.biSizeImage);
-	printf("biXPelsPerMeter:%ld\n", bmpHead.biXPelsPerMeter);
-	printf("biYPelsPerMeter:%ld\n", bmpHead.biYPelsPerMeter);
-	printf("biClrUsed:%ld\n", bmpHead.biClrUsed);
-	printf("biClrImportant:%ld\n", bmpHead.biClrImportant);
-}
-
-int ReadBmp(const char *szFileName)
-{
-	FILE *file;
-	errno_t err;
-	WORD bfh[7];
-	long dpixeladd;
-	
-	if ((err = fopen_s(&file, szFileName, "r"))!=0)
+	FILE* file;
+	if (0 != fopen_s(&file, fileName, "wb"))
 	{
-		return 0;
-	}
-	printf("%s\n", szFileName);
-	fread(&bfh, sizeof(WORD), 7, file);
-	if (bfh[0] != (WORD)(((WORD)'B') | ('M' << 8)))
-	{
-		fclose(file);
-		return 0;
-	}
-	fread(&bih, sizeof(BITMAPINFOHEADER), 1, file);
-	if (bih.biBitCount < 24)
-	{
-		fclose(file);
-		return 0;
-	}
-	dpixeladd = bih.biBitCount / 8;
-	LineByteWidth = bih.biWidth * (dpixeladd);
-	if ((LineByteWidth % 4) != 0)
-		LineByteWidth += 4 - (LineByteWidth % 4);
-
-	printImgInfo(bih);
-
-	if ((Buffer = (BYTE *)malloc(sizeof(BYTE) * LineByteWidth * bih.biHeight)) != NULL)
-	{
-		fread(Buffer, LineByteWidth * bih.biHeight, 1, file);
-		fclose(file);
 		return 1;
 	}
+	fwrite(bmp->fHead, sizeof(bmp->fHead), 1, file);
+	fwrite(bmp->fInfo, sizeof(bmp->fInfo), 1, file);
+	if (bmp->rgbqCount)
+	{
+		fwrite(bmp->rgbqList, sizeof(rgbq), bmp->rgbqCount, file);
+	}
+	fwrite(bmp->pixelData, bmp->fInfo->biSizeImage, 1, file);
 
 	fclose(file);
 	return 0;
 }
 
-int GetDIBColor(int X, int Y, BYTE *r, BYTE *g, BYTE *b)
+bmpArray* bmpArrBuild(const bmpImg* bmp, singleColor color)
 {
-	int dpixeladd;
-	BYTE *ptr;
-	if (X < 0 || X >= bih.biWidth || Y < 0 || Y >= bih.biHeight)
+	BYTE* pixelDataPtr = bmp->pixelData;
+	bmpArray* bmpArr = (bmpArray*)malloc(sizeof(bmpArray));
+	bmpArr->pixelArray = (BYTE*)malloc(bmp->fInfo->biSizeImage);
+
+	if (color == all || bmp->fInfo->biBitCount != 24) //非rgb 
 	{
-		return 0;
+		strcpy_s(bmpArr->pixelArray, bmp->fInfo->biSizeImage, pixelDataPtr);
+		bmpArr->width = bmp->fInfo->biWidth;
+		bmpArr->height = bmp->fInfo->biHeight;
+		bmpArr->bitCountOfPixel = bmp->fInfo->biBitCount;
 	}
-	dpixeladd = bih.biBitCount / 8;
-	ptr = Buffer + X * dpixeladd + (bih.biHeight - 1 - Y) * LineByteWidth;
-	*b = *ptr; 
-	*g = *(ptr + 1); //todo 有问题 应该根据dpixel决定加几次
-	*r = *(ptr + 2);
-	return 1;
-}
-//将RGB图像转变为灰度图像保存
-singleColorBmp ConvertToSingleColor(BITMAPINFOHEADER rgb, BYTE *Buffer)
-{
-	singleColorBmp bmpArr =
+	else
 	{
-		.bmpHead = NULL,
-		.pixelArray = NULL
-	};
-
-	if ((sizeof(rgb) == NULL) || (Buffer == NULL))
-	{
-		return bmpArr;
-	}
-
-	BITMAPINFOHEADER head = rgb;
-
-	head.biBitCount = sizeof(BYTE) * 8; //灰度图像用8位
-	int dpixeladd = bih.biBitCount / 8;
-	int LineByteWidth = bih.biWidth * (dpixeladd);
-	if ((LineByteWidth % 4) != 0)
-		LineByteWidth += 4 - (LineByteWidth % 4);
-
-	/**
-	BITMAPINFOHEADER head =
-	{
-		.biSize = rgb.biSize,
-		.biWidth = rgb.biWidth,
-		.biHeight = rgb.biHeight,
-		.biPlanes = rgb.biPlanes,
-		.biBitCount = sizeof(BYTE),         //灰度图像用8位
-		.biCompression = rgb.biCompression,
-		.biSizeImage = rgb.biSizeImage,
-		.biXPelsPerMeter = rgb.biXPelsPerMeter,
-		.biYPelsPerMeter = rgb.biYPelsPerMeter,
-		.biClrUsed = rgb.biClrUsed,
-		.biClrImportant = rgb.biClrImportant 
-	};
-	**/
-	
-
-	if ((bmpArr.pixelArray = (BYTE *)malloc(sizeof(BYTE) * LineByteWidth * head.biHeight)) != NULL)
-	{
-		bmpArr.bmpHead = head;
-
-		//todo 填充数组
-		BYTE *bufferPtr = Buffer;
-		BYTE *pixArrPtr = bmpArr.pixelArray;
-		int dpixelCount = bih.biBitCount / 8;
-		if (dpixelCount==3) //todo 优化不为3的情况
+		BYTE rgb[4]; //分别存储r g b gray
+		for (size_t i = 0; i < bmp->fInfo->biSizeImage; i++)
 		{
-			BYTE r, g, b;
-			for (size_t i = 0; i < rgb.biWidth*rgb.biHeight; i++)
-			{
-				b = *bufferPtr++;
-				g = *bufferPtr++;
-				r = *bufferPtr++;
+			rgb[0] = *pixelDataPtr++;
+			rgb[1] = *pixelDataPtr++;
+			rgb[2] = *pixelDataPtr++;
 
-				*pixArrPtr = (BYTE)(r * 0.299 + g * 0.587 + b * 0.114); //三色转灰度 todo:用移位操作避免浮点运算
-				*pixArrPtr++;
-			}
+			rgb[3] = (BYTE)(rgb[0] * 0.299 + rgb[1] * 0.587 + rgb[2] * 0.114); //三色转灰度 todo:用移位操作避免浮点运算 (或者直接1：1：1)
+
+			*(bmpArr->pixelArray) = rgb[color];
+			bmpArr->pixelArray++;
 		}
-		
+		bmpArr->width = bmp->fInfo->biWidth;
+		bmpArr->height = bmp->fInfo->biHeight;
+		bmpArr->bitCountOfPixel = sizeof(BYTE);
 	}
-
 	return bmpArr;
 }
+
+bmpImg* bmpImgBuild(const bmpArray* bmpArr)
+{
+	bmpImg* bmp = (bmpImg*)malloc(sizeof(bmpImg));
+	bmp->fHead = (fileHeader*)malloc(sizeof(fileHeader));
+	bmp->fInfo = (fileInfo*)malloc(sizeof(fileInfo));
+
+	if (bmpArr->bitCountOfPixel == BIT_24)
+	{
+		bmp->rgbqCount = 0;
+		bmp->rgbqList = NULL;
+	}
+	else 
+	{
+		
+		bmp->rgbqCount = (1 << bmpArr->bitCountOfPixel) ;
+		bmp->rgbqList = (rgbq*)malloc(bmp->rgbqCount * sizeof(rgbq));
+
+		switch (bmpArr->bitCountOfPixel)
+		{
+		case BIT_1:
+			//todo
+			break;
+		case BIT_4:
+			//todo
+			break;
+		case BIT_8:
+			for (size_t i = 0; i < (1 << BIT_8); i++)
+			{
+				(bmp->rgbqList + i)->rgbBlue = 1;
+				(bmp->rgbqList + i)->rgbGreen = 1;
+				(bmp->rgbqList + i)->rgbRed = 1;
+				(bmp->rgbqList + i)->rgbReserved = 0;
+			}
+			break;
+		default:
+			break;
+		}
+	}
+	bmp->pixelData = bmpArr->pixelArray;
+
+	*bmp->fHead->bfType = 'BM';
+	bmp->fHead->bfReserved1 = 0;
+	bmp->fHead->bfReserved2 = 0;
+	bmp->fHead->bfOffBits = sizeof(fileHeader) + sizeof(fileInfo) + sizeof(rgbq) * bmp->rgbqCount;
+	bmp->fHead->bfSize = bmpArr->width * bmpArr->height; //todo
+
+	bmp->fInfo->biSize = 40;//todo 这里指定大小干嘛？
+	bmp->fInfo->biWidth = bmpArr->width; //todo 保证是4的倍数?不是倍数怎么办？
+	bmp->fInfo->biHeight = bmpArr->height;
+	bmp->fInfo->biPlanes = 1;
+	bmp->fInfo->biBitCount = bmpArr->bitCountOfPixel;
+	bmp->fInfo->biCompression = 0;
+	bmp->fInfo->biSizeImage = bmpArr->width * bmpArr->height;
+	bmp->fInfo->biXPixPerMeter = 0;//todo
+	bmp->fInfo->biYPixPerMeter = 0;
+	bmp->fInfo->biClrUsed = bmp->rgbqCount;
+	bmp->fInfo->biClrImporant = 0;
+
+	return bmp;
+}
+
+bmpArray ConvBmp(const bmpArray* bmpArr,bmpArray kernal)
+{
+
+}
+
+void downSample(const bmpArray* bmpArr,WORD sampleWidowSize)
+{
+	//释放bmpArr.pixelArray原有空间，重新申请空间并赋值
+
+}
+
+void fillKernal(bmpArray* kernal)
+{
+
+}
+
+
+int main() 
+{
+	bmpImg *sourceImg, *tempImg;
+
+	bmpArray *readyImgArr, *tempImgArr, kernal[CONVTIMES];
+
+	bmpArray pyramidImgs[CONVTIMES][SAMPTIMES]; //保存卷积后的图像金字塔
+
+	char* sourceFileName = "1.bmp";
+
+	sourceImg = readBmp(sourceFileName);
+	readyImgArr = bmpArrBuild(sourceImg, gray);
+	tempImg = bmpImgBuild(readyImgArr);
+	writeBmp(tempImg, "gray_1.bmp");
+	
+	//fillKernal(kernal);
+	//tempImgArr = readyImgArr;
+	//
+	//for (size_t i = 0; i < SAMPTIMES; i++)
+	//{
+	//	for (size_t j = 0; j < CONVTIMES; j++)
+	//	{
+	//		pyramidImgs[i][j] = ConvBmp(tempImgArr, kernal[j]);
+	//	}
+	//	downSample(tempImgArr, SAMPLESIZE);
+	//}
+
+	system("pause");
+	return 0;
+}
+
+//int main()
+//{
+//	/*存储RGB图像的一行像素点*/
+//	BYTE ImgData[3000][3];
+//	/*将灰度图的像素存到一个一维数组中*/
+//	BYTE ImgData2[3000];
+//	int i, j, k;
+//	FILE * fpBMP, *fpGray;
+//	fileHeader * fh;
+//	fileInfo * fi;
+//	rgbq * fq;
+//
+//	if ((fpBMP = fopen("G:/vc6.0/work/21.bmp", "rb")) == NULL)
+//	{
+//		printf("打开文件失败");
+//		exit(0);
+//	}
+//
+//	if ((fpGray = fopen("G:/vc6.0/work/22.bmp", "wb")) == NULL)
+//	{
+//		printf("创建文件失败");
+//		exit(0);
+//	}
+//
+//	fh = (fileHeader *)malloc(sizeof(fileHeader));
+//	fi = (fileInfo *)malloc(sizeof(fileInfo));
+//	//读取位图头结构和信息头
+//	fread(fh, sizeof(fileHeader), 1, fpBMP);
+//	fread(fi, sizeof(fileInfo), 1, fpBMP);
+//	//修改头信息
+//	fi->biBitCount = 8;
+//	fi->biSizeImage = ((fi->biWidth * 3 + 3) / 4) * 4 * fi->biHeight;
+//	//fi->biClrUsed=256;
+//
+//	fh->bfOffBits = sizeof(fileHeader) + sizeof(fileInfo) + 256 * sizeof(rgbq);
+//	fh->bfSize = fh->bfOffBits + fi->biSizeImage;
+//
+//	//创建调色版
+//	fq = (rgbq *)malloc(256 * sizeof(rgbq));
+//	for (i = 0; i<256; i++)
+//	{
+//		fq[i].rgbBlue = fq[i].rgbGreen = fq[i].rgbRed = i;
+//		//fq[i].rgbReserved=0;
+//	}
+//	//将头信息写入
+//	fwrite(fh, sizeof(fileHeader), 1, fpGray);
+//	fwrite(fi, sizeof(fileInfo), 1, fpGray);
+//	fwrite(fq, sizeof(rgbq), 256, fpGray);
+//	//读取RGB图像素并转换为灰度值
+//	for (i = 0; i<fi->biHeight; i++)
+//	{
+//		for (j = 0; j<(fi->biWidth + 3) / 4 * 4; j++)
+//		{
+//			for (k = 0; k<3; k++)
+//				fread(&ImgData[j][k], 1, 1, fpBMP);
+//		}
+//		for (j = 0; j<(fi->biWidth + 3) / 4 * 4; j++)
+//		{
+//			ImgData2[j] =(int)((float)ImgData[j][0] * 0.114 +(float)ImgData[j][1] * 0.587 + (float)ImgData[j][2] * 0.299);
+//		}
+//		//将灰度图信息写入
+//		fwrite(ImgData2, j, 1, fpGray);
+//	}
+//
+//	free(fh);
+//	free(fi);
+//	free(fq);
+//	fclose(fpBMP);
+//	fclose(fpGray);
+//	printf("success\n");
+//	return 0;
+//}

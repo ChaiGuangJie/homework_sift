@@ -3,10 +3,9 @@
 
 int main()
 {
-	printf("%d",sizeof(char));
+	//printf("%d",sizeof(char));
 	int in=0;
-	scanf_s("&d", &in);
-	int[in] = NULL; //
+	printf("%d", 0 % 3);
 
 	return 0;
 }
