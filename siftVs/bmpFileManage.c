@@ -22,7 +22,7 @@ bmpImg* readBmp(const char* fileName)
 
 	bmp->fInfo = (fileInfo*)malloc(sizeof(fileInfo));
 
-	printf("%d", sizeof(bmp->fInfo));
+	//printf("%d", sizeof(bmp->fInfo));
 
 	fread(bmp->fInfo, sizeof(fileInfo), 1, file);
 
@@ -157,8 +157,8 @@ bmpImg* bmpImgBuild(const bmpArray* bmpArr)
 	bmp->fInfo->biBitCount = bmpArr->bitCountOfPixel;
 	bmp->fInfo->biCompression = 0;
 	bmp->fInfo->biSizeImage = bmpArr->width * bmpArr->height *bmpArr->bitCountOfPixel / 8;
-	bmp->fInfo->biXPixPerMeter = 3780; //todo
-	bmp->fInfo->biYPixPerMeter = 3780;
+	bmp->fInfo->biXPixPerMeter = 0; //todo
+	bmp->fInfo->biYPixPerMeter = 0;
 	bmp->fInfo->biClrUsed = bmp->rgbqCount;
 	bmp->fInfo->biClrImporant = bmp->rgbqCount;
 

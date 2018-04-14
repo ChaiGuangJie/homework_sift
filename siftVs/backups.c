@@ -141,47 +141,47 @@ int test(void)
 	return 0;
 }
 
-DWORD localCov(bmpArray bmp, BYTE* locOrigin,const bmpArray kernal)
-{
-	BYTE* bmpPtr = locOrigin;
-	BYTE* kerPtr = kernal.pixelArray;
-	DWORD covResult = 0;
-
-	for (size_t i = 0; i < kernal.height * kernal.width; i++)
-	{
-		covResult += (*kerPtr) * (*bmpPtr);
-		kerPtr++;
-		if ((i!=0)&& (i % kernal.width == 0)) 
-		{
-			//方形区域内一行卷积完毕
-			bmpPtr = locOrigin + bmp.width;
-		}
-		//todo 判断是否边界
-	}
-	return (DWORD)(covResult / kernal.width*kernal.height);
-}
-
-bmpArray convBmp(bmpArray bmp, bmpArray kernal)
-{
-	bmpArray newBmp =
-	{
-		.pixelArray = NULL,
-		.width = 0,
-		.height = 0,
-		.bitCountOfPixel = 8
-	};
-	//todo先计算新图像的宽高
-	newBmp.width = bmp.width - kernal.width + 1;
-	newBmp.height = bmp.height - kernal.height + 1;
-	newBmp.pixelArray = (BYTE*)malloc(sizeof(BYTE)*newBmp.width*newBmp.height);
-
-	for (size_t j = 0; j < newBmp.height*newBmp.width; j++)
-	{
-		*(newBmp.pixelArray + j) = localCov(bmp, bmp.pixelArray + j, kernal); //只要计算好newBmp的图像大小，就不会越界访问？
-	}
-
-	return newBmp;
-}
+//DWORD localCov(bmpArray bmp, BYTE* locOrigin,const bmpArray kernal)
+//{
+//	BYTE* bmpPtr = locOrigin;
+//	BYTE* kerPtr = kernal.pixelArray;
+//	DWORD covResult = 0;
+//
+//	for (size_t i = 0; i < kernal.height * kernal.width; i++)
+//	{
+//		covResult += (*kerPtr) * (*bmpPtr);
+//		kerPtr++;
+//		if ((i!=0)&& (i % kernal.width == 0)) 
+//		{
+//			//方形区域内一行卷积完毕
+//			bmpPtr = locOrigin + bmp.width;
+//		}
+//		//todo 判断是否边界
+//	}
+//	return (DWORD)(covResult / kernal.width*kernal.height);
+//}
+//
+//bmpArray convBmp(bmpArray bmp, bmpArray kernal)
+//{
+//	bmpArray newBmp =
+//	{
+//		.pixelArray = NULL,
+//		.width = 0,
+//		.height = 0,
+//		.bitCountOfPixel = 8
+//	};
+//	//todo先计算新图像的宽高
+//	newBmp.width = bmp.width - kernal.width + 1;
+//	newBmp.height = bmp.height - kernal.height + 1;
+//	newBmp.pixelArray = (BYTE*)malloc(sizeof(BYTE)*newBmp.width*newBmp.height);
+//
+//	for (size_t j = 0; j < newBmp.height*newBmp.width; j++)
+//	{
+//		*(newBmp.pixelArray + j) = localCov(bmp, bmp.pixelArray + j, kernal); //只要计算好newBmp的图像大小，就不会越界访问？
+//	}
+//
+//	return newBmp;
+//}
 
 //求卷积后的局域极值点
 

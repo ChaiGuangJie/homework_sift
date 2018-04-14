@@ -1,8 +1,7 @@
-//#include<stdio.h>
-//#include<malloc.h>
+#include<stdio.h>
+#include<malloc.h>
 //#include<stdlib.h>
-//#include<math.h>
-//#include<string.h>
+#include<math.h>
 #include"bmpFileManage.h"
 
 //卷积次数
@@ -12,12 +11,103 @@
 //
 #define SAMPLESIZE 9
 
+//卷积核宽度
+#define KERNALWIDTH 3
+
+#define PI          3.1415926
+
+#define PADDING     1
 
 
-bmpArray ConvBmp(const bmpArray* bmpArr,bmpArray kernal)
+typedef struct kernal
 {
+	float* kernalArr;
+	DWORD width;
+	DWORD height;
+}kernal;
 
+//扩充图像边缘
+bmpArray* preConv(const bmpArray* oldBmpArr, DWORD kWidth)
+{
+	DWORD width = oldBmpArr->width + kWidth - 1;
+	DWORD height = oldBmpArr->height + kWidth - 1;
+	bmpArray* newBmpArr = (bmpArray*)malloc(sizeof(bmpArray));
+	newBmpArr->width = width;
+	newBmpArr->height = height;
+	newBmpArr->bitCountOfPixel = oldBmpArr->bitCountOfPixel;
+	newBmpArr->pixelArray = (BYTE*)malloc(newBmpArr->bitCountOfPixel / 8 * width*height);
+	BYTE* newArrPtr = newBmpArr->pixelArray;
+	BYTE* oldArrPtr = oldBmpArr->pixelArray;
+	for (size_t i = 0; i < width*height; i++)
+	{
+		*(newBmpArr->pixelArray + i) = (BYTE)'b';
+	}
+	for (size_t i = kWidth / 2; i < kWidth / 2 + oldBmpArr->height; i++)
+	{
+		for (size_t j = kWidth / 2; j < kWidth / 2 + oldBmpArr->width; j++)
+		{
+			*(newBmpArr->pixelArray + i * newBmpArr->width + j) = *(oldArrPtr)++;
+		}
+	}
+	return newBmpArr;
 }
+
+DWORD localCov(const bmpArray* bmp, const BYTE* locOrigin, const kernal* ker)
+{
+	BYTE* bmpPtr = locOrigin; //todo 
+	float* kerPtr = ker->kernalArr;
+	float covResult = 0;
+
+	for (size_t i = 1; i < ker->height * ker->width + 1; i++)
+	{
+		float t = *kerPtr;
+		covResult = covResult + (*kerPtr) * (*bmpPtr);
+		kerPtr++;
+		bmpPtr++;
+		if ((ker->height*ker->width != i) && (i % ker->width == 0))
+		{
+			//方形区域内一行卷积完毕
+			bmpPtr = bmpPtr + bmp->width - ker->width;
+			//bmpPtr += (bmp->width - ker->width);
+		}
+		//todo 判断是否边界
+	}
+	return (BYTE)covResult;
+}
+
+bmpArray* convBmp(const bmpArray* bmpArr,const kernal* ker)
+{
+	bmpArray* newBmp = (bmpArray*)malloc(sizeof(bmpArray));
+
+
+	newBmp->width = bmpArr->width;
+	newBmp->height = bmpArr->height;
+
+	newBmp->pixelArray = (BYTE*)malloc(bmpArr->bitCountOfPixel / 8 * newBmp->width * newBmp->height);
+	newBmp->bitCountOfPixel = bmpArr->bitCountOfPixel;
+	//todo 先构造新图像
+	bmpArray* preBmpArr = preConv(bmpArr, ker->width);
+
+	//writeBmp(bmpImgBuild(preBmpArr),"testPre.bmp");
+
+	for (size_t j = 0; j < newBmp->height * newBmp->width; j++)
+	{
+		*(newBmp->pixelArray + j) = localCov(preBmpArr, preBmpArr->pixelArray + j, ker);
+	}
+	return newBmp;
+}
+
+
+
+//求卷积后的局域极值点
+
+
+//用三次函数拟合后求真正的极值点
+
+
+//去除边界上的和小于阈值的极值点
+
+//todo 下采样后求得的极值点如何恢复到原图像中？
 
 void downSample(const bmpArray* bmpArr,WORD sampleWidowSize)
 {
@@ -25,9 +115,40 @@ void downSample(const bmpArray* bmpArr,WORD sampleWidowSize)
 
 }
 
-void fillKernal(bmpArray* kernal)
+//目前仅限高斯核 宽限定为奇数？
+kernal* fillKernal(DWORD kWidth,float dt)
 {
+	if (kWidth % 2 != 1)
+	{
+		return NULL;
+	}
+	kernal* ker = (kernal*)malloc(sizeof(kernal));
+	ker->width = kWidth;
+	ker->height = kWidth;
+	ker->kernalArr = (float*)malloc(sizeof(float) * ker->width * ker->height);
+	float* kerPtr = ker->kernalArr;
 
+	int base = -(int)(kWidth / 2);
+	int x, y;
+	float nomal = 0;
+
+	for (size_t i = 0; i < ker->width; i++)
+	{
+		for (size_t j = 0; j < ker->height; j++)
+		{
+			y = base + i;
+			x = base + j;
+			*kerPtr++ = 1.0 / 2 * PI * dt * dt * exp((x * x + y * y) / (-2.0*dt*dt));
+			nomal += *((ker->kernalArr) + i + j);
+			//printf("%f", *((ker->kernalArr) + i + j));
+		}
+	}
+	//todo 权重归一化
+	for (size_t i = 0; i < ker->height*ker->width; i++)
+	{
+		*(ker->kernalArr + i) = *(ker->kernalArr + i) / nomal;
+	}
+	return ker;
 }
 
 
@@ -35,20 +156,32 @@ int main()
 {
 	bmpImg *sourceImg, *tempImg;
 
-	bmpArray *readyImgArr, *tempImgArr, kernal[CONVTIMES];
+	bmpArray *readyImgArr, *tempImgArr;
+	kernal* kers[CONVTIMES];
 
-	bmpArray pyramidImgs[CONVTIMES][SAMPTIMES]; //保存卷积后的图像金字塔
+	bmpArray* pyramidImgs[CONVTIMES][SAMPTIMES]; //保存卷积后的图像金字塔
 
 	char* sourceFileName = "1.bmp";
 
-	sourceImg = readBmp(sourceFileName);
+	sourceImg = readBmp("2.bmp");
+	//sourceImg = readBmp(sourceFileName);
 	readyImgArr = bmpArrBuild(sourceImg, gray);
 	tempImg = bmpImgBuild(readyImgArr);
-	writeBmp(tempImg, "gray_1_bili.bmp");
-	
-	//fillKernal(kernal);
-	//tempImgArr = readyImgArr;
+	writeBmp(tempImg, "gray_t.bmp");
 	//
+	kers[0] = fillKernal(KERNALWIDTH, 1);
+	tempImgArr = readyImgArr;
+
+	/*char pixelArr[10] = {'q','q','q','q','q','q','q','q','q','q'};
+	pixelArr[5] = 127;
+	bmpArray testBmpArr = { pixelArr,3,3,8 };
+	tempImgArr = &testBmpArr;*/
+
+	pyramidImgs[0][0] = convBmp(tempImgArr, kers[0]);
+	
+	writeBmp(bmpImgBuild(pyramidImgs[0][0]),"conv_test.bmp");
+	
+	
 	//for (size_t i = 0; i < SAMPTIMES; i++)
 	//{
 	//	for (size_t j = 0; j < CONVTIMES; j++)
