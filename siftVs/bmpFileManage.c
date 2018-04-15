@@ -46,6 +46,13 @@ bmpImg* readBmp(const char* fileName)
 	fread(bmp->pixelData, bmp->fInfo->biSizeImage, 1, file);
 
 	fclose(file);
+
+	//ceshi
+	/*for (size_t i = 0; i < bmp->fHead->bfSize - bmp->fHead->bfOffBits; i++)
+	{
+		printf("%d,", *(bmp->pixelData + i));
+	}*/
+	
 	return bmp;
 
 }
@@ -120,9 +127,11 @@ bmpArray* bmpArrBuild(const bmpImg* bmp, singleColor color)
 		bmpArr->realWidth = realArrWidthBytes;
 
 		bmpArr->pixelArray = (BYTE*)malloc(realArrWidthBytes * bmpArr->height);
+		
+		memset(bmpArr->pixelArray, 0, realArrWidthBytes * bmpArr->height);
 	
 		BYTE* pixelDataPtr = NULL;
-
+		printf("begin:\n");
 		//一定要用双层循环
 		for (size_t i = 0; i < bmp->fInfo->biHeight; i++)
 		{
@@ -132,11 +141,16 @@ bmpArray* bmpArrBuild(const bmpImg* bmp, singleColor color)
 
 				rgb[0] = *(pixelDataPtr++);
 				rgb[1] = *(pixelDataPtr++);
-				rgb[2] = *(pixelDataPtr++);
+				rgb[2] = *(pixelDataPtr);
 
 				//rgb[3] = (BYTE)((rgb[0] + rgb[1] + rgb[2]) / 3);
+				
+				//printf("%d,", *(bmpArr->pixelArray + i * realArrWidthBytes + j * bmpArr->bitCountOfPixel / 8));
+				//printf("\n");
 				rgb[3] = (BYTE)(rgb[0] * 0.299 + rgb[1] * 0.587 + rgb[2] * 0.114); //三色转灰度 todo:用移位操作避免浮点运算 (或者直接1：1：1)
 				*(bmpArr->pixelArray + i * realArrWidthBytes + j * bmpArr->bitCountOfPixel / 8) = rgb[color];
+				/*printf("%d", *(bmpArr->pixelArray + i * realArrWidthBytes + j * bmpArr->bitCountOfPixel / 8));
+				printf("\n");*/
 			}
 		}
 		
@@ -215,6 +229,7 @@ bmpImg* bmpImgBuild(const bmpArray* bmpArr)
 	bmp->fInfo->biYPixPerMeter = 0;
 	bmp->fInfo->biClrUsed = bmp->rgbqCount;
 	bmp->fInfo->biClrImporant = bmp->rgbqCount;
+
 
 	return bmp;
 }

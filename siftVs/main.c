@@ -1,7 +1,8 @@
 #include<stdio.h>
 #include<malloc.h>
-//#include<stdlib.h>
+#include<stdlib.h>
 #include<math.h>
+#include<string.h>
 #include"bmpFileManage.h"
 
 //卷积次数
@@ -11,10 +12,10 @@
 //
 #define SAMPLESIZE 9
 
-//卷积核宽度
-#define KERNALWIDTH 3
+//卷积核宽度(奇数)
+#define KERNALWIDTH 15
 
-#define PI          3.1415926
+#define PI          3.14159
 
 #define PADDING     1
 
@@ -45,14 +46,15 @@ bmpArray* preConv(const bmpArray* oldBmpArr, DWORD kWidth)
 	}
 
 	newBmpArr->pixelArray = (BYTE*)malloc(newBmpArr->realWidth * height);
+	memset(newBmpArr->pixelArray, PADDING, newBmpArr->realWidth * height);
 
 	BYTE* newArrPtr = newBmpArr->pixelArray;
 	BYTE* oldArrPtr = oldBmpArr->pixelArray;
 
-	for (size_t i = 0; i < newBmpArr->realWidth * height; i++)
-	{
-		*(newBmpArr->pixelArray + i) = (BYTE)PADDING;
-	}
+	//for (size_t i = 0; i < newBmpArr->realWidth * height; i++)
+	//{
+	//	*(newBmpArr->pixelArray + i) = (BYTE)PADDING;
+	//}
 
 	for (size_t i = 0; i < oldBmpArr->height; i++)
 	{
@@ -87,10 +89,15 @@ DWORD localCov(const bmpArray* bmp, const BYTE* locOrigin, const kernal* ker)
 		if ((ker->height*ker->width != i) && (i % ker->width == 0))
 		{
 			//方形区域内一行卷积完毕
-			bmpPtr = bmpPtr + bmp->width - ker->width;
+			bmpPtr = bmpPtr + bmp->width - ker->width+1;
 			//bmpPtr += (bmp->width - ker->width);
 		}
 		//todo 判断是否边界
+	}
+	//todo 大坑！！！
+	if (covResult > 255)
+	{
+		covResult = 255;
 	}
 	return (BYTE)covResult;
 }
@@ -115,12 +122,21 @@ bmpArray* convBmp(const bmpArray* bmpArr,const kernal* ker)
 	//todo 先构造新图像
 	bmpArray* preBmpArr = preConv(bmpArr, ker->width);
 
-	//writeBmp(bmpImgBuild(preBmpArr),"testPre.bmp");
+	writeBmp(bmpImgBuild(preBmpArr),"testPre.bmp");
 
-	for (size_t j = 0; j < newBmpArr->height * newBmpArr->width; j++)
+	for (size_t i = 0; i < newBmpArr->height; i++)
+	{
+		for (size_t j = 0; j < newBmpArr->width; j++)
+		{
+			*(newBmpArr->pixelArray + i * newBmpArr->realWidth + j * newBmpArr->bitCountOfPixel / 8) =
+				localCov(preBmpArr, preBmpArr->pixelArray + i * preBmpArr->realWidth + j * preBmpArr->bitCountOfPixel / 8, ker);
+		}
+	}
+
+	/*for (size_t j = 0; j < newBmpArr->height * newBmpArr->width; j++)
 	{
 		*(newBmpArr->pixelArray + j) = localCov(preBmpArr, preBmpArr->pixelArray + j, ker);
-	}
+	}*/
 	return newBmpArr;
 }
 
@@ -159,14 +175,15 @@ kernal* fillKernal(DWORD kWidth,float dt)
 	int x, y;
 	float nomal = 0;
 
-	for (size_t i = 0; i < ker->width; i++)
+	for (size_t i = 0; i < ker->height; i++)
 	{
-		for (size_t j = 0; j < ker->height; j++)
+		for (size_t j = 0; j < ker->width; j++)
 		{
 			y = base + i;
 			x = base + j;
-			*kerPtr++ = 1.0 / 2 * PI * dt * dt * exp((x * x + y * y) / (-2.0*dt*dt));
-			nomal += *((ker->kernalArr) + i + j);
+			*kerPtr = (1.0 / (2 * PI * dt * dt)) * exp((x * x + y * y) / (-2.0*dt*dt));
+			nomal += *(kerPtr);
+			kerPtr++;
 			//printf("%f", *((ker->kernalArr) + i + j));
 		}
 	}
@@ -190,23 +207,15 @@ int main()
 
 	char* sourceFileName = "1.bmp";
 
-	sourceImg = readBmp("t.bmp");
-	writeBmp(sourceImg, "t_copy_2.bmp");
+	sourceImg = readBmp(sourceFileName);
+	//writeBmp(sourceImg, "t_copy_2.bmp");
 	//sourceImg = readBmp(sourceFileName);
-	readyImgArr = bmpArrBuild(sourceImg, gray);
+	readyImgArr = bmpArrBuild(sourceImg, green);
 	tempImg = bmpImgBuild(readyImgArr);
-	
-	//for (size_t i = 0; i < sourceImg->rgbqCount; i++)
-	//{
-	//	if (sourceImg->rgbqList->rgbRed != tempImg->rgbqList->rgbRed) 
-	//	{
-	//		printf("!!!!!!!!!!!!!!!!!!!!");
-	//	}
-	//}
 
-	writeBmp(tempImg, "gray_t_copy.bmp");
+	writeBmp(tempImg, "gray_1.bmp");
 	//
-	kers[0] = fillKernal(KERNALWIDTH, 2);
+	kers[0] = fillKernal(KERNALWIDTH, 3);
 	tempImgArr = readyImgArr;
 
 	/*char pixelArr[10] = {'q','q','q','q','q','q','q','q','q','q'};
