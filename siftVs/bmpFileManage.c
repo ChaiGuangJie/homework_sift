@@ -6,6 +6,58 @@
 #include"bmpFileManage.h"
 
 
+array2D* imgArrToArr2D(const bmpArray* bmpArr)
+{
+	array2D* arr2D = (array2D*)malloc(sizeof(array2D));
+	arr2D->h = bmpArr->height;
+	arr2D->w = bmpArr->width;
+
+	arr2D->head = (BYTE*)malloc(arr2D->h * arr2D->w);
+
+	if (bmpArr->width == bmpArr->realWidth)
+	{
+		memcpy(arr2D->head, bmpArr->pixelArray, arr2D->h*arr2D->w);
+	}
+	else
+	{
+		for (size_t i = 0; i < arr2D->h; i++)
+		{
+			for (size_t j = 0; j < arr2D->w; j++)
+			{
+				*(arr2D->head + i * arr2D->h + j) = *(bmpArr->pixelArray + i * bmpArr->realWidth + j);
+			}
+		}
+	}
+	return arr2D;
+}
+
+bmpArray* arr2DToImgArr(array2D* arr2D)
+{
+	bmpArray* bmpArr = (bmpArray*)malloc(sizeof(bmpArray));
+
+	WORD bitCountOfPixel = 8;//todo 默认只能转换8位图像
+	DWORD realWidth = arr2D->w * bitCountOfPixel / 8;
+	if (realWidth % 4 != 0)
+	{
+		realWidth += 4 - realWidth % 4;
+	}
+	bmpArr->pixelArray = (BYTE*)malloc(realWidth*arr2D->h);
+	//memset(bmpArr->pixelArray, 1, realWidth*arr2D->h);
+	for (size_t i = 0; i < arr2D->h; i++)
+	{
+		for (size_t j = 0; j < arr2D->w; j++)
+		{
+			*(bmpArr->pixelArray + i * realWidth + j) = *(arr2D->head + i * arr2D->w + j);
+		}
+	}
+	bmpArr->height = arr2D->h;
+	bmpArr->width = arr2D->w;
+	bmpArr->realWidth = realWidth;
+	bmpArr->bitCountOfPixel = bitCountOfPixel;
+
+	return bmpArr;
+}
+
 bmpImg* readBmp(const char* fileName)
 {
 	FILE* file;

@@ -81,6 +81,13 @@ typedef enum color
 
 }singleColor;
 
+typedef struct array2D
+{
+	DWORD h;
+	DWORD w;
+	BYTE* head;
+}array2D;
+
 bmpImg* readBmp(const char* fileName);
 
 int writeBmp(const bmpImg* bmp, const char* fileName);
@@ -88,3 +95,7 @@ int writeBmp(const bmpImg* bmp, const char* fileName);
 bmpArray* bmpArrBuild(const bmpImg* bmp, singleColor color);
 
 bmpImg* bmpImgBuild(const bmpArray* bmpArr);
+
+array2D* imgArrToArr2D(const bmpArray* bmpArr);
+
+bmpArray* arr2DToImgArr(array2D* arr2D);

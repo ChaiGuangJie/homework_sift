@@ -27,6 +27,7 @@ typedef struct kernal
 	DWORD height;
 }kernal;
 
+
 //扩充单色图像边缘
 bmpArray* preConv(const bmpArray* oldBmpArr, DWORD kWidth)
 {
@@ -149,13 +150,74 @@ bmpArray* convBmp(const bmpArray* bmpArr,const kernal* ker)
 
 
 //去除边界上的和小于阈值的极值点
-
 //todo 下采样后求得的极值点如何恢复到原图像中？
 
-void downSample(const bmpArray* bmpArr,WORD sampleWidowSize)
-{
-	//释放bmpArr.pixelArray原有空间，重新申请空间并赋值
 
+
+
+BYTE localConv(const array2D* arr2D,size_t begin,kernal* k)
+{
+	BYTE* arr2DPtr = arr2D->head + begin; //todo 
+	float* kerPtr = k->kernalArr;
+	float covResult = 0;
+
+	for (size_t i = 1; i < k->height * k->width + 1; i++)
+	{
+		covResult = covResult + (*kerPtr) * (*arr2DPtr);
+		kerPtr++;
+		arr2DPtr++;
+		if ((k->height*k->width != i) && (i % k->width == 0))
+		{
+			//方形区域内一行卷积完毕
+			arr2DPtr = arr2DPtr + arr2D->w - k->width + 1;
+		}
+		//todo 判断是否边界
+	}
+	//todo 大坑！！！
+	if (covResult > 255)
+	{
+		covResult = 255;
+	}
+	return (BYTE)covResult;
+}
+
+
+kernal* fillAvgKernal(WORD width)
+{
+	kernal* k = (kernal*)malloc(sizeof(kernal));
+	k->width = width;
+	k->height = width;
+	k->kernalArr = (float*)malloc(sizeof(float) * k->height * k->width);
+	float* kerPtr = k->kernalArr;
+	for (size_t i = 0; i < k->height*k->width; i++)
+	{
+		float f = 1.0 / (k->height*k->width);
+		*kerPtr++ = f;
+	}
+	return k;
+}
+
+array2D* downSample(const array2D* arr2D,WORD sampleWidowSize)
+{
+	//
+	array2D* newArr2D = (array2D*)malloc(sizeof(array2D));
+	newArr2D->h = arr2D->h / sampleWidowSize;
+	newArr2D->w = arr2D->w / sampleWidowSize;
+	newArr2D->head = (BYTE*)malloc(newArr2D->h*newArr2D->w);
+
+	kernal* k = fillAvgKernal(sampleWidowSize);
+
+	for (size_t i = 0; i < newArr2D->h; i++)
+	{
+		for (size_t j = 0; j < newArr2D->w; j++)
+		{
+			//测试
+			*(newArr2D->head + i * newArr2D->w + j) = 
+				localConv(arr2D, i* arr2D->w*sampleWidowSize + j * sampleWidowSize,k);
+		}
+	}
+
+	return newArr2D;
 }
 
 //目前仅限高斯核 宽限定为奇数？
@@ -184,6 +246,7 @@ kernal* fillKernal(DWORD kWidth,float dt)
 			*kerPtr = (1.0 / (2 * PI * dt * dt)) * exp((x * x + y * y) / (-2.0*dt*dt));
 			nomal += *(kerPtr);
 			kerPtr++;
+			//todo 这里能++？
 			//printf("%f", *((ker->kernalArr) + i + j));
 		}
 	}
@@ -195,6 +258,48 @@ kernal* fillKernal(DWORD kWidth,float dt)
 	return ker;
 }
 
+array2D* prepareConv(array2D* originBmp2D,DWORD kWidth)
+{
+	array2D* prepBmp2D = (array2D*)malloc(sizeof(array2D));
+	prepBmp2D->h = originBmp2D->h + kWidth - 1;
+	prepBmp2D->w = originBmp2D->w + kWidth - 1;
+	prepBmp2D->head = (BYTE*)malloc(prepBmp2D->h * prepBmp2D->w);
+
+	memset(prepBmp2D->head, PADDING, prepBmp2D->h*prepBmp2D->w);
+
+	for (size_t i = 0; i < originBmp2D->h; i++)
+	{
+		for (size_t j = 0; j < originBmp2D->w; j++)
+		{
+			*(prepBmp2D->head + (kWidth / 2 + i) * prepBmp2D->w + (kWidth / 2) + j) =
+				*(originBmp2D->head + i * originBmp2D->w+ j);
+		}
+	}
+	return prepBmp2D;
+}
+
+array2D* conv2D(const array2D* bmp2D, const kernal* ker)
+{
+	array2D* outBmp2D = (array2D*)malloc(sizeof(array2D));
+	outBmp2D->h = bmp2D->h;
+	outBmp2D->w = bmp2D->w;
+	outBmp2D->head = (BYTE*)malloc(outBmp2D->w * outBmp2D->h);
+
+	//todo 先构造新图像
+	array2D* prepBmp2D = prepareConv(bmp2D, ker->width);
+	//测试
+	writeBmp(bmpImgBuild(arr2DToImgArr(prepBmp2D)), "testPre.bmp");
+
+	for (size_t i = 0; i < outBmp2D->h; i++)
+	{
+		for (size_t j = 0; j < outBmp2D->w; j++)
+		{
+			*(outBmp2D->head + i * outBmp2D->w + j) =
+				localConv(prepBmp2D,  i * prepBmp2D->w + j, ker);
+		}
+	}
+	return outBmp2D;
+}
 
 int main() 
 {
@@ -203,7 +308,7 @@ int main()
 	bmpArray *readyImgArr, *tempImgArr;
 	kernal* kers[CONVTIMES];
 
-	bmpArray* pyramidImgs[CONVTIMES][SAMPTIMES]; //保存卷积后的图像金字塔
+	array2D* pyramidImgs[CONVTIMES][SAMPTIMES]; //保存卷积后的图像金字塔
 
 	char* sourceFileName = "1.bmp";
 
@@ -215,15 +320,18 @@ int main()
 
 	writeBmp(tempImg, "gray_1.bmp");
 	//
-	kers[0] = fillKernal(KERNALWIDTH, 3);
-	tempImgArr = readyImgArr;
+	array2D* afterSamp2D = NULL;
+	for (size_t i = 0; i < SAMPTIMES; i++)
+	{
+		afterSamp2D = downSample(readyImgArr, i + 1);
+		for (size_t j = 0; j < CONVTIMES; j++)
+		{
+			pyramidImgs[i][j] = conv2D(afterSamp2D, fillKernal(KERNALWIDTH, pow(sqrt(2),(i + 1))));//todo 释放kernal
+		}
 
-	/*char pixelArr[10] = {'q','q','q','q','q','q','q','q','q','q'};
-	pixelArr[5] = 127;
-	bmpArray testBmpArr = { pixelArr,3,3,8 };
-	tempImgArr = &testBmpArr;*/
-
-	pyramidImgs[0][0] = convBmp(tempImgArr, kers[0]);
+		free(afterSamp2D->head);
+		free(afterSamp2D);
+	}
 	
 	writeBmp(bmpImgBuild(pyramidImgs[0][0]),"conv_test.bmp");
 	
