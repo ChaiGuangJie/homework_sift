@@ -26,29 +26,49 @@ typedef struct kernal
 	DWORD height;
 }kernal;
 
-//À©³äÍ¼Ïñ±ßÔµ
+//À©³äµ¥É«Í¼Ïñ±ßÔµ
 bmpArray* preConv(const bmpArray* oldBmpArr, DWORD kWidth)
 {
 	DWORD width = oldBmpArr->width + kWidth - 1;
 	DWORD height = oldBmpArr->height + kWidth - 1;
+
 	bmpArray* newBmpArr = (bmpArray*)malloc(sizeof(bmpArray));
 	newBmpArr->width = width;
 	newBmpArr->height = height;
 	newBmpArr->bitCountOfPixel = oldBmpArr->bitCountOfPixel;
-	newBmpArr->pixelArray = (BYTE*)malloc(newBmpArr->bitCountOfPixel / 8 * width*height);
+
+	newBmpArr->realWidth = width * newBmpArr->bitCountOfPixel / 8;
+
+	if (newBmpArr->realWidth % 4 != 0)
+	{
+		newBmpArr->realWidth += 4 - width % 4;
+	}
+
+	newBmpArr->pixelArray = (BYTE*)malloc(newBmpArr->realWidth * height);
+
 	BYTE* newArrPtr = newBmpArr->pixelArray;
 	BYTE* oldArrPtr = oldBmpArr->pixelArray;
-	for (size_t i = 0; i < width*height; i++)
+
+	for (size_t i = 0; i < newBmpArr->realWidth * height; i++)
 	{
-		*(newBmpArr->pixelArray + i) = (BYTE)'b';
+		*(newBmpArr->pixelArray + i) = (BYTE)PADDING;
 	}
-	for (size_t i = kWidth / 2; i < kWidth / 2 + oldBmpArr->height; i++)
+
+	for (size_t i = 0; i < oldBmpArr->height; i++)
+	{
+		for (size_t j = 0; j < oldBmpArr->width; j++)
+		{
+			*(newArrPtr + (kWidth / 2 + i) * newBmpArr->realWidth + (kWidth / 2) + j) = *(oldArrPtr + i * oldBmpArr->realWidth + j);
+		}
+	}
+
+	/*for (size_t i = kWidth / 2; i < kWidth / 2 + oldBmpArr->height; i++)
 	{
 		for (size_t j = kWidth / 2; j < kWidth / 2 + oldBmpArr->width; j++)
 		{
-			*(newBmpArr->pixelArray + i * newBmpArr->width + j) = *(oldArrPtr)++;
+			*(newBmpArr->pixelArray + i * newBmpArr->realWidth + j) = *(oldArrPtr++);
 		}
-	}
+	}*/
 	return newBmpArr;
 }
 
@@ -77,24 +97,31 @@ DWORD localCov(const bmpArray* bmp, const BYTE* locOrigin, const kernal* ker)
 
 bmpArray* convBmp(const bmpArray* bmpArr,const kernal* ker)
 {
-	bmpArray* newBmp = (bmpArray*)malloc(sizeof(bmpArray));
+	bmpArray* newBmpArr = (bmpArray*)malloc(sizeof(bmpArray));
 
 
-	newBmp->width = bmpArr->width;
-	newBmp->height = bmpArr->height;
+	newBmpArr->width = bmpArr->width;
+	newBmpArr->height = bmpArr->height;
+	newBmpArr->bitCountOfPixel = bmpArr->bitCountOfPixel;
 
-	newBmp->pixelArray = (BYTE*)malloc(bmpArr->bitCountOfPixel / 8 * newBmp->width * newBmp->height);
-	newBmp->bitCountOfPixel = bmpArr->bitCountOfPixel;
+	newBmpArr->realWidth = newBmpArr->width * newBmpArr->bitCountOfPixel / 8; //todo realWidthÖØ¹¹
+	if (newBmpArr->realWidth % 4 != 0)
+	{
+		newBmpArr->realWidth += 4 - newBmpArr->realWidth % 4;
+	}
+
+	newBmpArr->pixelArray = (BYTE*)malloc(bmpArr->realWidth * newBmpArr->height);
+	
 	//todo ÏÈ¹¹ÔìÐÂÍ¼Ïñ
 	bmpArray* preBmpArr = preConv(bmpArr, ker->width);
 
 	//writeBmp(bmpImgBuild(preBmpArr),"testPre.bmp");
 
-	for (size_t j = 0; j < newBmp->height * newBmp->width; j++)
+	for (size_t j = 0; j < newBmpArr->height * newBmpArr->width; j++)
 	{
-		*(newBmp->pixelArray + j) = localCov(preBmpArr, preBmpArr->pixelArray + j, ker);
+		*(newBmpArr->pixelArray + j) = localCov(preBmpArr, preBmpArr->pixelArray + j, ker);
 	}
-	return newBmp;
+	return newBmpArr;
 }
 
 
@@ -163,13 +190,23 @@ int main()
 
 	char* sourceFileName = "1.bmp";
 
-	sourceImg = readBmp("2.bmp");
+	sourceImg = readBmp("t.bmp");
+	writeBmp(sourceImg, "t_copy_2.bmp");
 	//sourceImg = readBmp(sourceFileName);
 	readyImgArr = bmpArrBuild(sourceImg, gray);
 	tempImg = bmpImgBuild(readyImgArr);
-	writeBmp(tempImg, "gray_t.bmp");
+	
+	//for (size_t i = 0; i < sourceImg->rgbqCount; i++)
+	//{
+	//	if (sourceImg->rgbqList->rgbRed != tempImg->rgbqList->rgbRed) 
+	//	{
+	//		printf("!!!!!!!!!!!!!!!!!!!!");
+	//	}
+	//}
+
+	writeBmp(tempImg, "gray_t_copy.bmp");
 	//
-	kers[0] = fillKernal(KERNALWIDTH, 1);
+	kers[0] = fillKernal(KERNALWIDTH, 2);
 	tempImgArr = readyImgArr;
 
 	/*char pixelArr[10] = {'q','q','q','q','q','q','q','q','q','q'};

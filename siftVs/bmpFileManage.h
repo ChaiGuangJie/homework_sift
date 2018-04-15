@@ -71,6 +71,7 @@ typedef struct bmpArray
 	BYTE *pixelArray;
 	DWORD width;
 	DWORD height;
+	DWORD realWidth;
 	WORD bitCountOfPixel;
 }bmpArray;
 
