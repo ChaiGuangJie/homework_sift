@@ -2,7 +2,7 @@
 #include<malloc.h>
 #include<stdlib.h>
 #include<math.h>
-#include<string.h>
+//#include<string.h>
 #include"bmpFileManage.h"
 
 //卷积次数
@@ -315,7 +315,7 @@ int main()
 	sourceImg = readBmp(sourceFileName);
 	//writeBmp(sourceImg, "t_copy_2.bmp");
 	//sourceImg = readBmp(sourceFileName);
-	readyImgArr = bmpArrBuild(sourceImg, green);
+	readyImgArr = bmpArrBuild(sourceImg, gray);
 	tempImg = bmpImgBuild(readyImgArr);
 
 	writeBmp(tempImg, "gray_1.bmp");
@@ -323,17 +323,30 @@ int main()
 	array2D* afterSamp2D = NULL;
 	for (size_t i = 0; i < SAMPTIMES; i++)
 	{
-		afterSamp2D = downSample(readyImgArr, i + 1);
+		afterSamp2D = downSample(imgArrToArr2D(readyImgArr), i + 1); //todo free
 		for (size_t j = 0; j < CONVTIMES; j++)
 		{
-			pyramidImgs[i][j] = conv2D(afterSamp2D, fillKernal(KERNALWIDTH, pow(sqrt(2),(i + 1))));//todo 释放kernal
+			pyramidImgs[i][j] = conv2D(afterSamp2D, fillKernal(KERNALWIDTH, pow(sqrt(2),(j + 1))));//todo 释放kernal
 		}
 
 		free(afterSamp2D->head);
 		free(afterSamp2D);
 	}
+	char fileName[20];
+	for (size_t i = 0; i < CONVTIMES; i++)
+	{
+		for (size_t j = 0; j < SAMPTIMES; j++)
+		{
+			/*strcat(fileName,'a');
+			strcat_s(fileName, sizeof("_"),"_");
+			strcat_s(fileName, 1, (char)(j + 48));
+			strcat_s(fileName, sizeof(".bmp"),".bmp");*/
+			sprintf_s(fileName, 20, "pyramid_%d_%d.bmp", i, j);
+
+			writeBmp(bmpImgBuild(arr2DToImgArr(pyramidImgs[i][j])),  fileName);
+		}
+	}
 	
-	writeBmp(bmpImgBuild(pyramidImgs[0][0]),"conv_test.bmp");
 	
 	
 	//for (size_t i = 0; i < SAMPTIMES; i++)
