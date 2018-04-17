@@ -183,7 +183,7 @@ bmpArray* bmpArrBuild(const bmpImg* bmp, singleColor color)
 		memset(bmpArr->pixelArray, 0, realArrWidthBytes * bmpArr->height);
 	
 		BYTE* pixelDataPtr = NULL;
-		printf("begin:\n");
+		
 		//一定要用双层循环
 		for (size_t i = 0; i < bmp->fInfo->biHeight; i++)
 		{

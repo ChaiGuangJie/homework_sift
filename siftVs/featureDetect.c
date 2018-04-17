@@ -1,7 +1,6 @@
 #include"featureDetect.h"
 
 
-
 //扩充单色图像边缘
 //bmpArray* preConv(const bmpArray* oldBmpArr, DWORD kWidth)
 //{
@@ -371,6 +370,28 @@ BYTE localPeak3D(const array2D* frontLayer, const array2D* currentLayer, const a
 	//0 非极值
 }
 
+int is_too_edge_like(array2D* dog_img, int r, int c, float curv_thr)
+{
+	double d, dxx, dyy, dxy, tr, det;
+
+	/* principal curvatures are computed using the trace and det of Hessian */
+	d = pixval32f(dog_img, r, c);
+	dxx = pixval32f(dog_img, r, c + 1) + pixval32f(dog_img, r, c - 1) - 2 * d;
+	dyy = pixval32f(dog_img, r + 1, c) + pixval32f(dog_img, r - 1, c) - 2 * d;
+	dxy = (pixval32f(dog_img, r + 1, c + 1) - pixval32f(dog_img, r + 1, c - 1) -
+		pixval32f(dog_img, r - 1, c + 1) + pixval32f(dog_img, r - 1, c - 1)) / 4.0;
+	tr = dxx + dyy;
+	det = dxx * dyy - dxy * dxy;
+
+	/* negative determinant -> curvatures have different signs; reject feature */
+	if (det <= 0)
+		return 1;
+
+	if (tr * tr / det < (curv_thr + 1.0)*(curv_thr + 1.0) / curv_thr)
+		return 0;
+	return 1;
+}
+
 void peakExtract(const array2D** DOGPyramid, DWORD maxSampTimes, DWORD maxConvTimes, featureList* flist)
 {
 	for (size_t j = 0; j < maxSampTimes; j++)
@@ -390,7 +411,8 @@ void peakExtract(const array2D** DOGPyramid, DWORD maxSampTimes, DWORD maxConvTi
 					if (localPeak3D(lastConv, currentConv, nextConv, h, w))
 					{
 						//todo 极值 存储
-						storagePeak(flist, h, w, j, i);
+						if (!is_too_edge_like(currentConv, h, w, SIFT_CONTR_THR))
+							storagePeak(flist, h, w, j, i);
 					}
 				}
 			}
@@ -400,7 +422,7 @@ void peakExtract(const array2D** DOGPyramid, DWORD maxSampTimes, DWORD maxConvTi
 }
 float pixval32f(array2D* img, int r, int c)
 {
-	return ((float*)(img->head + img->w * r))[c];
+	return (float)(*(img->head + img->w * r + c));
 }
 
 int calc_grad_mag_ori(array2D* img, int r, int c, double* mag,
@@ -494,6 +516,7 @@ void storageFeature(featureList* fList, peakPoint* pk)
 	p->w = pk->w;
 	p->iSamp = pk->iSamp;
 	p->iConv = pk->iConv;
+	p->ori = pk->ori;
 
 	if (fList->head == NULL)
 	{
@@ -529,7 +552,7 @@ void add_good_ori_features(featureList* features, double* hist, int n,
 			new_feat = clone_feature(feat);
 			new_feat->ori = ((PI2 * bin) / n) - PI;
 			//seqPush(features, new_feat);
-			storageFeature(features, feat);
+			storageFeature(features, new_feat);
 			free(new_feat);
 		}
 	}
@@ -541,13 +564,13 @@ peakPoint* nextFeature(featureList* fList)
 	if (currentPtr == NULL) {
 		currentPtr = fList->head;
 	}
-	peakPoint* pk = clone_feature(currentPtr);
+	peakPoint* pk = currentPtr;//clone_feature(currentPtr);
 	currentPtr = currentPtr->next;
 
 	return pk;
 }
 
-void calc_feature_oris(featureList* features, array2D*** gauss_pyr)
+void calc_feature_oris(featureList* features,featureList* newFeatures, array2D** gauss_pyr)
 {
 	peakPoint* feat;
 	//DetectionData* ddata;
@@ -560,20 +583,19 @@ void calc_feature_oris(featureList* features, array2D*** gauss_pyr)
 
 		feat = nextFeature(features);
 		double sigma = pow(sqrt(2), feat->iConv);
-		//ddata = feat_detection_data(feat);
 		hist = ori_hist(*(gauss_pyr + feat->iSamp * SAMPTIMES + feat->iConv),
 			feat->h, feat->w, SIFT_ORI_HIST_BINS,
-			iround(SIFT_ORI_RADIUS * feat->iSamp),
+			iround(SIFT_ORI_RADIUS * (feat->iSamp+1)),
 			sigma);
 		for (j = 0; j < SIFT_ORI_SMOOTH_PASSES; j++)
 			smooth_ori_hist(hist, SIFT_ORI_HIST_BINS);
 		omax = dominant_ori(hist, SIFT_ORI_HIST_BINS);
-		add_good_ori_features(features, hist, SIFT_ORI_HIST_BINS,
+		add_good_ori_features(newFeatures, hist, SIFT_ORI_HIST_BINS,
 			omax * SIFT_ORI_PEAK_RATIO, feat);
-
-		currentPtr = NULL;
 		//free(ddata);
 		free(feat);
 		free(hist);
 	}
+	printf("%d", i);
+	//currentPtr = NULL;;
 }

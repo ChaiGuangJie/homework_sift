@@ -14,7 +14,7 @@ int main()
 	array2D* DOGPyramidImgs[SAMPTIMES][CONVTIMES - 1]; //卷积结果少一个
 
 	featureList* featureList1=initFeatureList(), *featureList2 = initFeatureList();
-
+	printf("begin:\n");
 	char* sourceFileName = "1.bmp";
 
 	sourceImg = readBmp(sourceFileName);
@@ -24,6 +24,7 @@ int main()
 	tempImg = bmpImgBuild(readyImgArr);
 
 	writeBmp(tempImg, "gray_1.bmp");
+	printf("生成灰度图像\n");
 	//
 	array2D* afterSamp2D = NULL;
 	char fileName[30];
@@ -52,11 +53,13 @@ int main()
 		free(afterSamp2D->head);
 		free(afterSamp2D);
 	}
-
+	printf("已生成DOGPyramid！\n");
 	peakExtract(DOGPyramidImgs,SAMPTIMES,CONVTIMES,featureList1);
 
 	//有问题
-	calc_feature_oris(featureList1, DOGPyramidImgs);
+	calc_feature_oris(featureList1,featureList2, DOGPyramidImgs);
+
+	printf("图像 1.bmp 中找到特征点的个数为：%d",featureList2->count);
 
 
 

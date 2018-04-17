@@ -27,6 +27,7 @@
 #define SIFT_ORI_RADIUS					3.0 * SIFT_ORI_SIG_FCTR	/* determines the radius of the region used in orientation assignment */
 #define SIFT_ORI_SMOOTH_PASSES			2			/* number of passes of orientation histogram smoothing */
 #define SIFT_ORI_PEAK_RATIO				0.8			/* orientation magnitude relative to max that results in new feature */
+#define SIFT_CONTR_THR					0.04		/** default threshold on keypoint contrast |D(x)| */
 
 
 
@@ -102,5 +103,6 @@ void add_good_ori_features(featureList* features, double* hist, int n, double ma
 
 peakPoint* nextFeature(featureList* fList);
 
-void calc_feature_oris(featureList* features, array2D*** gauss_pyr);
+void calc_feature_oris(featureList* features, featureList* newFeatures, array2D** gauss_pyr);
 
+int is_too_edge_like(array2D* dog_img, int r, int c, int curv_thr);
