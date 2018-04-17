@@ -56,6 +56,7 @@ int main()
 	peakExtract(DOGPyramidImgs,SAMPTIMES,CONVTIMES,featureList1);
 
 	//”–Œ Ã‚
+
 	calc_feature_oris(featureList1, DOGPyramidImgs);
 
 
