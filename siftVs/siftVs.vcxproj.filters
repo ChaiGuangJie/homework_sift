@@ -24,9 +24,15 @@
     <ClCompile Include="bmpFileManage.c">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="featureDetect.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="bmpFileManage.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="featureDetect.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

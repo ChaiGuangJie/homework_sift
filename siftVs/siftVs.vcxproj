@@ -112,11 +112,13 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="bmpFileManage.c" />
+    <ClCompile Include="featureDetect.c" />
     <ClCompile Include="main.c" />
     <ClCompile Include="backups.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="bmpFileManage.h" />
+    <ClInclude Include="featureDetect.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
